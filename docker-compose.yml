@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  inventory-service:
+    build: ./inventory-service
+    ports:
+      - "8081:8081"
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "8082:8082"
+
+  frontend-service:
+    build: ./frontend-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - inventory-service
+      - payment-service

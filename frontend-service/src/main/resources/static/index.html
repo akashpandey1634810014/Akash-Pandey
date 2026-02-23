@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Books & Notebooks + Offline Payment</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; background: #f7f7fb; color: #1f2937; }
+        h1 { margin-bottom: 0.5rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+        .card { background: #fff; border-radius: 12px; padding: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        label { display:block; margin-top:0.5rem; font-size:0.9rem; }
+        input, select, button { width: 100%; margin-top: 0.2rem; padding: 0.5rem; border-radius: 8px; border:1px solid #ccc; }
+        button { background: #0f766e; color: white; border: none; cursor: pointer; margin-top: 0.8rem; }
+        button:hover { background: #115e59; }
+        table { width:100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border-bottom: 1px solid #e5e7eb; padding: 0.4rem; text-align: left; font-size: 0.9rem; }
+        .error { color: #b91c1c; margin-top: 0.5rem; }
+        .ok { color: #166534; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+<h1>Warehouse Management + Offline Payment</h1>
+<p>Manage <b>Books</b> and <b>Notebooks</b> stock from warehouse, then record offline customer payments.</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>Add Product</h3>
+        <label>Name <input id="name"></label>
+        <label>Type
+            <select id="type">
+                <option value="BOOK">BOOK</option>
+                <option value="NOTEBOOK">NOTEBOOK</option>
+            </select>
+        </label>
+        <label>Quantity <input id="quantity" type="number" min="0" value="0"></label>
+        <label>Unit Price <input id="price" type="number" min="0" value="0"></label>
+        <button onclick="addProduct()">Save Product</button>
+        <div id="productMsg"></div>
+    </div>
+
+    <div class="card">
+        <h3>Record Offline Payment</h3>
+        <label>Invoice No <input id="invoiceNo"></label>
+        <label>Customer Name <input id="customerName"></label>
+        <label>Method
+            <select id="method">
+                <option value="CASH">CASH</option>
+                <option value="CARD">CARD</option>
+                <option value="UPI">UPI</option>
+            </select>
+        </label>
+        <label>Amount <input id="amount" type="number" min="1" value="1"></label>
+        <button onclick="recordPayment()">Save Payment</button>
+        <div id="paymentMsg"></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+    <h3>Inventory</h3>
+    <table id="inventoryTable"><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Qty</th><th>Price</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+    <h3>Payment History</h3>
+    <table id="paymentTable"><thead><tr><th>ID</th><th>Invoice</th><th>Customer</th><th>Method</th><th>Amount</th><th>Mode</th><th>Time</th></tr></thead><tbody></tbody></table>
+</div>
+
+<script>
+const inventoryApi = 'http://localhost:8081/api/inventory/products';
+const paymentApi = 'http://localhost:8082/api/payments';
+
+async function refreshInventory() {
+    const res = await fetch(inventoryApi);
+    const data = await res.json();
+    const body = document.querySelector('#inventoryTable tbody');
+    body.innerHTML = data.map(p => `<tr><td>${p.id}</td><td>${p.name}</td><td>${p.type}</td><td>${p.quantity}</td><td>${p.unitPrice}</td></tr>`).join('');
+}
+
+async function refreshPayments() {
+    const res = await fetch(paymentApi);
+    const data = await res.json();
+    const body = document.querySelector('#paymentTable tbody');
+    body.innerHTML = data.map(p => `<tr><td>${p.id}</td><td>${p.invoiceNo}</td><td>${p.customerName}</td><td>${p.method}</td><td>${p.amount}</td><td>${p.mode}</td><td>${p.paidAt}</td></tr>`).join('');
+}
+
+function renderMsg(target, message, isError = false) {
+    const el = document.getElementById(target);
+    el.className = isError ? 'error' : 'ok';
+    el.textContent = message;
+}
+
+async function addProduct() {
+    const payload = {
+        name: document.getElementById('name').value,
+        type: document.getElementById('type').value,
+        quantity: Number(document.getElementById('quantity').value),
+        unitPrice: Number(document.getElementById('price').value)
+    };
+
+    const res = await fetch(inventoryApi, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        renderMsg('productMsg', err.error || 'Failed to save product', true);
+        return;
+    }
+
+    renderMsg('productMsg', 'Product saved successfully.');
+    refreshInventory();
+}
+
+async function recordPayment() {
+    const payload = {
+        invoiceNo: document.getElementById('invoiceNo').value,
+        customerName: document.getElementById('customerName').value,
+        method: document.getElementById('method').value,
+        amount: Number(document.getElementById('amount').value),
+        mode: 'OFFLINE'
+    };
+
+    const res = await fetch(paymentApi, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        renderMsg('paymentMsg', err.error || 'Failed to save payment', true);
+        return;
+    }
+
+    renderMsg('paymentMsg', 'Payment recorded successfully.');
+    refreshPayments();
+}
+
+refreshInventory();
+refreshPayments();
+</script>
+</body>
+</html>
